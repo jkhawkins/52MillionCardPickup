@@ -240,7 +240,9 @@ func _test_aggregate_distribution() -> void:
 	var s := PickupRules.new(31)
 	grant(s, "V10", 5)
 	var n := 200000
+	var before_collected := s.manual_cards + s.auto_cards
 	s.generate_cards(n, 1, 0, false, true)
+	check(s.manual_cards + s.auto_cards == before_collected + n, "aggregate generation conserves collected cards")
 	var ranks := PackedInt64Array()
 	ranks.resize(13)
 	var foils := 0

@@ -9,6 +9,8 @@ var opportunity := 0
 var purchases: Array[String] = []
 var milestones: Array[Dictionary] = []
 var next_milestone := 0
+var purchase_wait := 0.0
+var max_purchase_wait := 0.0
 const TARGETS := [5000, 100000, 1000000, 4000000, 12000000, 28000000, 52000000]
 
 func _init(name: String) -> void:
@@ -20,8 +22,8 @@ func manual_rate() -> float:
 		"high_attention": return 3.0
 		"balanced": return 2.5
 		"value_first": return 2.0
-		"automation_first": return 1.0
-		"low_attention": return 0.75
+		"automation_first": return 1.25
+		"low_attention": return 1.5
 	return 2.0
 
 func step(s: PickupRules, dt: float) -> void:
@@ -35,6 +37,8 @@ func step(s: PickupRules, dt: float) -> void:
 	# Before A09, a human presses Deposit; agents must do the same instead of idling at capacity.
 	if not s.r("A09") and s.batch_remaining == 0 and s.inventory_count >= s.capacity():
 		s.start_deposit(true)
+	purchase_wait += dt
+	max_purchase_wait = maxf(max_purchase_wait, purchase_wait)
 	decision_clock += dt
 	if decision_clock >= 0.5:
 		decision_clock = 0.0
@@ -50,7 +54,10 @@ func step(s: PickupRules, dt: float) -> void:
 		next_milestone += 1
 
 func _buy_decision(s: PickupRules) -> void:
-	# Buy one rank at a time. A small reserve prevents starving the next prerequisite.
+	# Buy one affordable rank at a time. Evaluating only affordable nodes keeps the
+	# harness fast; policies still save implicitly by scoring progress per money.
+	if s.completed and not s.endless:
+		return
 	var best := ""
 	var best_score := -1.0
 	for e in s.entries:
@@ -62,51 +69,60 @@ func _buy_decision(s: PickupRules) -> void:
 			best_score = score
 			best = id
 	if best != "":
-		# Do not spend the last money on a negligible upgrade when a core node is close.
-		if s.money >= s.cost(best) * 0.98:
-			s.buy(best)
-			purchases.append(best)
+		s.buy(best)
+		purchases.append(best)
+		purchase_wait = 0.0
 
 func _score(s: PickupRules, id: String) -> float:
 	var cost := s.cost(id)
 	var throughput := maxf(1.0, s.auto_throughput() + manual_rate() * s.manual_yield())
 	var income := maxf(1.0, throughput * 8.0)
-	var gain := 0.0
+	# Every policy estimates the same live marginal progress; preferences only weight branches.
+	var gain := _balanced_gain(s, id, throughput, income)
 	var branch := id[0]
+	var weight := 1.0
 	match policy:
 		"manual_first":
-			if branch == "M": gain = throughput * 0.9
-			elif id in ["C01", "C06", "C05"]: gain = throughput * 0.5
-			elif branch == "A": gain = throughput * (0.15 if s.r("M03") >= 2 else 0.02)
-			elif branch == "V": gain = income * 0.08
-			elif branch == "C": gain = throughput * 0.2
-			elif branch == "X": gain = throughput * 0.25
-			else: gain = throughput * 0.05
+			match branch:
+				"M": weight = 1.5
+				"B": weight = 1.2
+				"X": weight = 1.1
+				"C": weight = 0.8
+				"A": weight = 0.5 if s.r("M03") < 2 else 0.8
+				"V": weight = 0.7
+				"S": weight = 0.5
+				_: weight = 0.6
 		"automation_first":
-			if branch == "A": gain = throughput * 1.2
-			elif branch == "C": gain = throughput * 0.7
-			elif branch == "P": gain = throughput * 0.6
-			elif branch == "V": gain = income * 0.12
-			elif branch == "X": gain = throughput * 0.2
-			else: gain = throughput * 0.05
+			match branch:
+				"A": weight = 1.3
+				"C", "P": weight = 1.1
+				"D", "V": weight = 1.0
+				"X": weight = 0.8
+				"M": weight = 0.85
+				_: weight = 0.75
 		"value_first":
-			if branch in ["V", "H"]: gain = income * 0.9
-			elif branch == "S": gain = income * 0.35
-			elif branch in ["A", "C", "M"]: gain = throughput * 0.35
-			elif branch == "X": gain = income * 0.2
-			else: gain = throughput * 0.05
+			match branch:
+				"V": weight = 1.3
+				"H": weight = 1.1
+				"S": weight = 0.95
+				"D": weight = 1.0
+				"A", "C", "M": weight = 1.2
+				"X": weight = 0.9
+				_: weight = 0.75
 		"low_attention":
-			if branch in ["A", "C"]: gain = throughput * 0.8
-			elif branch in ["V", "D", "P"]: gain = income * 0.15 + throughput * 0.2
-			elif branch == "S": gain = throughput * 0.15
-			else: gain = throughput * 0.03
+			match branch:
+				"A", "C": weight = 1.0
+				"D", "P", "V", "S", "M": weight = 1.0
+				"X": weight = 0.9
+				_: weight = 0.9
 		"high_attention":
-			if branch in ["M", "X", "B"]: gain = throughput * 0.9
-			elif branch in ["A", "C", "D", "P"]: gain = throughput * 0.7
-			elif branch in ["V", "H", "S"]: gain = income * 0.2
-			else: gain = throughput * 0.1
-		_:
-			gain = _balanced_gain(s, id, throughput, income)
+			match branch:
+				"M": weight = 1.25
+				"X": weight = 1.35
+				"B": weight = 1.15
+				"A", "C", "D", "P": weight = 1.0
+				_: weight = 0.9
+	gain *= weight
 	# Prerequisite paths get a temporary bonus so agents do not ignore required roots.
 	for e in s.entries:
 		for p in e.prerequisites:
@@ -149,7 +165,7 @@ func _ability_decision(s: PickupRules) -> void:
 			3: use = s.missing_count() > 8
 			4: use = s.free_space() >= s.capacity() * 0.1
 		if policy == "high_attention" and i == 1:
-			use = s.batch_remaining > 0 and (s.deposit_rush_left > 0 or s.batch_full)
+			use = s.batch_remaining > 0 and (s.deposit_rush_left > 0 or s.batch_full or s.inventory_count >= s.capacity() * 0.9)
 		if use:
 			s.activate_ability(i)
 

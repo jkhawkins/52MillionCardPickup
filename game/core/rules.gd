@@ -185,7 +185,8 @@ func cost(id: String) -> float:
 	var b: Dictionary = bands[e.band]
 	var scale := float(balance.get("cost_scales", {}).get(e.band, 1.0))
 	scale *= float(balance.get("node_cost_scales", {}).get(id, 1.0))
-	return ceil(float(b.base) * pow(float(b.growth), r(id)) * float(e.cost_multiplier) * scale)
+	var growth := float(balance.get("node_cost_growth", {}).get(id, float(b.growth)))
+	return ceil(float(b.base) * pow(growth, r(id)) * float(e.cost_multiplier) * scale)
 
 func prerequisites_met(id: String) -> bool:
 	for p in entry(id).prerequisites:
@@ -474,8 +475,10 @@ func _generate_aggregate(amount: int, source: int, lucky_rank: int, forced_missi
 	inventory_count += amount
 	if source == 0:
 		manual_generated += amount
+		manual_cards += amount
 	else:
 		auto_generated += amount
+		auto_cards += amount
 	if carried() >= capacity() and capacity() == 52:
 		unlock("full_house")
 	if carried() < capacity():

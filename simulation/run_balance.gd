@@ -37,6 +37,7 @@ func _init() -> void:
 				rank_map[e.id] = s.r(e.id)
 		stats["final_ranks"] = rank_map
 		stats["wall_seconds"] = elapsed
+		stats["max_purchase_wait_seconds"] = agent.max_purchase_wait
 		stats["unspent_fraction"] = s.money / maxf(1.0, s.earned)
 		report.agents[name] = stats
 		print("%s: %s in %.1f min, earned $%s, unspent %.1f%%, wall %.1fs" % [name, "COMPLETE" if s.completed else "incomplete", s.active_time / 60.0, PickupRules.format_number(s.earned), stats.unspent_fraction * 100.0, elapsed])
