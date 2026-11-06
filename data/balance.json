@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "pass": "GDD initial bands",
+  "cost_scales": {"A": 1.0, "B": 1.0, "C": 1.0, "D": 1.0, "E": 1.0, "F": 1.0},
+  "node_cost_scales": {},
+  "helper_rate_scale": 1.0,
+  "deck_bonus_scale": 1.0,
+  "ability_uptime_scale": 1.0
+}

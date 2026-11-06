@@ -1,0 +1,26 @@
+{
+  "enabled": false,
+  "app_id": 0,
+  "achievements": {
+    "one_down": "ONE_DOWN",
+    "full_house": "FULL_HOUSE",
+    "worth_the_paper": "WORTH_THE_PAPER",
+    "shiny": "SHINY",
+    "helping_hand": "HELPING_HAND",
+    "do_it_yourself": "DO_IT_YOURSELF",
+    "well_oiled_table": "WELL_OILED_TABLE",
+    "counting_excellence": "COUNTING_EXCELLENCE",
+    "combo_artist": "COMBO_ARTIST",
+    "lucky_streak": "LUCKY_STREAK",
+    "four_suits_one_plan": "FOUR_SUITS_ONE_PLAN",
+    "found_it": "FOUND_IT",
+    "royal_treatment": "ROYAL_TREATMENT",
+    "foil_collection": "FOIL_COLLECTION",
+    "event_regular": "EVENT_REGULAR",
+    "millionaire": "MILLIONAIRE",
+    "eight_figures": "EIGHT_FIGURES",
+    "the_long_count": "THE_LONG_COUNT",
+    "fully_equipped": "FULLY_EQUIPPED",
+    "52_million_card_pickup": "COMPLETE_52_MILLION"
+  }
+}

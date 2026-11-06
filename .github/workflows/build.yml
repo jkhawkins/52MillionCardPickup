@@ -1,0 +1,67 @@
+name="Build PC and preview"
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, "arena/**"]
+
+permissions:
+  contents: read
+
+env:
+  GODOT_VERSION: 4.7.2
+
+jobs:
+  test-and-export:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Godot and templates
+        run: |
+          set -euo pipefail
+          base="https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable"
+          curl -L --fail -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip
+          sudo install -m755 "Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
+          curl -L --fail -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          mkdir -p ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          unzip -q templates.tpz -d templates
+          mv templates/templates/* ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable/
+      - name: Import
+        run: godot --headless --path . --editor --quit
+      - name: Rules tests
+        run: godot --headless --path . --script res://tests/test_rules.gd
+      - name: Balance smoke (10 simulated minutes per agent)
+        run: godot --headless --path . --script res://simulation/run_balance.gd -- --minutes=10 --out=simulation/results/ci.json
+      - name: Export Windows
+        run: |
+          mkdir -p build/windows
+          godot --headless --path . --export-release "Windows Desktop" build/windows/52MillionCardPickup.exe
+      - name: Export Linux
+        run: |
+          mkdir -p build/linux
+          godot --headless --path . --export-release "Linux" build/linux/52MillionCardPickup.x86_64
+      - name: Export Web preview
+        run: |
+          mkdir -p build/web
+          godot --headless --path . --export-release "Web" build/web/index.html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 52MillionCardPickup-Windows
+          path: build/windows/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 52MillionCardPickup-Linux
+          path: build/linux/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 52MillionCardPickup-Web-Preview
+          path: build/web/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: balance-smoke
+          path: simulation/results/ci.json

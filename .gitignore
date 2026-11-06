@@ -1,0 +1,28 @@
+# Godot imported caches and local editor state
+.godot/
+*.tmp
+*.bak
+.import/
+export_credentials.cfg
+
+# Local build products (release artifacts are published separately)
+build/
+dist/
+out/
+node_modules/
+.cache/
+.venv/
+__pycache__/
+*.pyc
+coverage/
+
+# Keep large simulation datasets out of source control; checked-in reports are small summaries.
+simulation/results/*.jsonl
+simulation/results/*.csv
+simulation/results/raw/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
