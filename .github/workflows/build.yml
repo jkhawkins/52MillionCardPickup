@@ -1,4 +1,4 @@
-name="Build PC and preview"
+name: Build PC and preview
 
 on:
   workflow_dispatch:
